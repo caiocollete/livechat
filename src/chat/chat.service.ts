@@ -6,11 +6,17 @@ import { RedisClientType } from 'redis';
 // Interface para definir a estrutura da mensagem
 export interface IMessage {
   session: string;
+  name: string;
   Text: string;
   Date: string;
 }
+export interface IName {
+  session: string;
+  name: string;
+}
 
 const CHAT_HISTORY_KEY = 'chat:geral';
+const CHAT_NAME_KEY = 'chat:name';
 const MAX_HISTORY_LENGTH = 50; // Manter apenas as últimas 50 mensagens
 
 @Injectable()
@@ -23,6 +29,26 @@ export class ChatService implements OnModuleInit {
     this.redisClient = this.redisService.getClient();
   }
 
+  async saveName(sessionId: string, name: string): Promise<void> {
+    const nametipado: IName = {
+      session: sessionId,
+      name: name,
+    };
+    await this.redisClient.lPush(CHAT_NAME_KEY, JSON.stringify(nametipado));
+  }
+
+  async getName(sessionId: string): Promise<string> {
+    const names = await this.redisClient.lRange(CHAT_NAME_KEY, 0, -1);
+
+    for (const nameStr of names) {
+      const nameObj = JSON.parse(nameStr) as IName;
+      if (nameObj.session === sessionId) {
+        return nameObj.name;
+      }
+    }
+    return 'Anonymous';
+  }
+
   /**
    * Salva uma nova mensagem anônima no histórico do Redis.
    * @param sessionId - O ID da conexão do cliente.
@@ -32,10 +58,10 @@ export class ChatService implements OnModuleInit {
   async saveMessage(sessionId: string, text: string): Promise<IMessage> {
     const message: IMessage = {
       session: sessionId,
+      name: await this.getName(sessionId),
       Text: text,
       Date: new Date().toISOString(), // Usar o padrão ISO 8601 é uma boa prática
     };
-
     const messageString = JSON.stringify({ Message: message });
 
     // Adiciona a mensagem no topo da lista

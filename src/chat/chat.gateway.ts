@@ -39,6 +39,20 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   /**
+   * Ouve por eventos de salvamento de nome.
+   * Salva o nome do usuário associado à sessão.
+   */
+  @SubscribeMessage('saveName')
+  async handleSaveName(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() name: string,
+  ): Promise<void> {
+    const sessionId = client.id;
+
+    await this.chatService.saveName(sessionId, name);
+  }
+
+  /**
    * Ouve por novas mensagens do evento 'sendMessage'.
    * Salva a mensagem e a transmite para todos os clientes.
    */

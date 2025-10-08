@@ -25,6 +25,7 @@
         height: 400px;
         overflow-y: auto;
         padding: 15px;
+        margin-top: 20px;
         margin-bottom: 20px;
         background-color: #fafafa;
       }
@@ -59,6 +60,23 @@
         border: 1px solid #ddd;
         border-radius: 25px;
         outline: none;
+        font-size: 16px;
+      }
+      #nameInput {
+        flex: 1;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 25px;
+        outline: none;
+        font-size: 16px;
+      }
+      #saveNameButton {
+        padding: 12px 24px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 25px;
+        cursor: pointer;
         font-size: 16px;
       }
       #sendButton {
@@ -107,12 +125,13 @@
 
       <div id="status" class="status disconnected">Desconectado</div>
 
-      <div class="connection-info">
-        <strong>Como usar:</strong><br />
-        1. Certifique-se de que o servidor NestJS está rodando na porta 3000<br />
-        2. Certifique-se de que o Redis está rodando na porta 6379<br />
-        3. A conexão será estabelecida automaticamente<br />
-        4. Digite uma mensagem e clique em "Enviar" ou pressione Enter
+      <div class="input-container">
+        <input
+          type="text"
+          id="nameInput"
+          placeholder="Digite seu nome aqui..."
+        />
+        <button id="saveNameButton">Salvar</button>
       </div>
 
       <div id="chatContainer" class="chat-container">
@@ -198,7 +217,7 @@
 
         const infoDiv = document.createElement('div');
         infoDiv.className = 'message-info';
-        infoDiv.textContent = `Sessão: ${message.session.substring(0, 8)}... | ${new Date(message.Date).toLocaleString()}`;
+        infoDiv.textContent = `${message.name} | ${new Date(message.Date).toLocaleString()}`;
 
         const textDiv = document.createElement('div');
         textDiv.textContent = message.Text;
@@ -224,12 +243,36 @@
         }
       }
 
+      // Salvar nome
+      function saveName() {
+        const nameInput = document.getElementById('nameInput');
+        const saveNameButton = document.getElementById('saveNameButton');
+        if (nameInput.value && socket.connected) {
+          console.log('Enviando nome:', nameInput.value);
+          socket.emit('saveName', nameInput.value);
+
+          nameInput.disabled = true;
+          name = nameInput.value;
+
+          saveNameButton.disabled = true;
+          saveNameButton.textContent = 'Nome Salvo!';
+          saveNameButton.style.backgroundColor = '#28a745';
+        }
+      }
+
       // Event listeners
       sendButton.addEventListener('click', sendMessage);
+      saveNameButton.addEventListener('click', saveName);
 
       messageInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
           sendMessage();
+        }
+      });
+
+      nameInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          saveName();
         }
       });
 
