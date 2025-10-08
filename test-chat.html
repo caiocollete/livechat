@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Teste do Chat em Tempo Real</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      .chat-container {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        height: 400px;
+        overflow-y: auto;
+        padding: 15px;
+        margin-bottom: 20px;
+        background-color: #fafafa;
+      }
+      .message {
+        margin-bottom: 10px;
+        padding: 8px 12px;
+        border-radius: 15px;
+        max-width: 70%;
+        word-wrap: break-word;
+      }
+      .message.own {
+        background-color: #007bff;
+        color: white;
+        margin-left: auto;
+      }
+      .message.other {
+        background-color: #e9ecef;
+        color: #333;
+      }
+      .message-info {
+        font-size: 0.8em;
+        opacity: 0.7;
+        margin-bottom: 2px;
+      }
+      .input-container {
+        display: flex;
+        gap: 10px;
+      }
+      #messageInput {
+        flex: 1;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 25px;
+        outline: none;
+        font-size: 16px;
+      }
+      #sendButton {
+        padding: 12px 24px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 25px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      #sendButton:hover {
+        background-color: #0056b3;
+      }
+      #sendButton:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+      }
+      .status {
+        margin-bottom: 15px;
+        padding: 10px;
+        border-radius: 5px;
+        text-align: center;
+        font-weight: bold;
+      }
+      .status.connected {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+      .status.disconnected {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+      .connection-info {
+        font-size: 0.9em;
+        color: #666;
+        margin-bottom: 15px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🚀 Chat em Tempo Real</h1>
+
+      <div id="status" class="status disconnected">Desconectado</div>
+
+      <div class="connection-info">
+        <strong>Como usar:</strong><br />
+        1. Certifique-se de que o servidor NestJS está rodando na porta 3000<br />
+        2. Certifique-se de que o Redis está rodando na porta 6379<br />
+        3. A conexão será estabelecida automaticamente<br />
+        4. Digite uma mensagem e clique em "Enviar" ou pressione Enter
+      </div>
+
+      <div id="chatContainer" class="chat-container">
+        <div style="text-align: center; color: #666; padding: 50px">
+          Aguardando conexão...
+        </div>
+      </div>
+
+      <div class="input-container">
+        <input
+          type="text"
+          id="messageInput"
+          placeholder="Digite sua mensagem aqui..."
+          maxlength="500"
+          disabled
+        />
+        <button id="sendButton" disabled>Enviar</button>
+      </div>
+    </div>
+
+    <script>
+      // Conecta ao servidor WebSocket
+      const socket = io('http://localhost:3000');
+
+      const statusDiv = document.getElementById('status');
+      const chatContainer = document.getElementById('chatContainer');
+      const messageInput = document.getElementById('messageInput');
+      const sendButton = document.getElementById('sendButton');
+
+      let currentSessionId = null;
+
+      // Eventos de conexão
+      socket.on('connect', () => {
+        console.log('Conectado ao servidor!');
+        statusDiv.textContent = 'Conectado';
+        statusDiv.className = 'status connected';
+        messageInput.disabled = false;
+        sendButton.disabled = false;
+        currentSessionId = socket.id;
+
+        // Limpa o container de chat
+        chatContainer.innerHTML = '';
+      });
+
+      socket.on('disconnect', () => {
+        console.log('Desconectado do servidor!');
+        statusDiv.textContent = 'Desconectado';
+        statusDiv.className = 'status disconnected';
+        messageInput.disabled = true;
+        sendButton.disabled = true;
+      });
+
+      // Recebe histórico de mensagens quando conecta
+      socket.on('history', (messages) => {
+        console.log('Histórico recebido:', messages);
+        chatContainer.innerHTML = '';
+
+        if (messages && messages.length > 0) {
+          messages.forEach((message) => {
+            addMessageToChat(message, message.session === currentSessionId);
+          });
+        } else {
+          chatContainer.innerHTML =
+            '<div style="text-align: center; color: #666; padding: 50px;">Nenhuma mensagem no histórico</div>';
+        }
+      });
+
+      // Recebe novas mensagens em tempo real
+      socket.on('receiveMessage', (data) => {
+        console.log('Nova mensagem recebida:', data);
+        if (data.Message) {
+          addMessageToChat(
+            data.Message,
+            data.Message.session === currentSessionId,
+          );
+        }
+      });
+
+      // Função para adicionar mensagem ao chat
+      function addMessageToChat(message, isOwn) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${isOwn ? 'own' : 'other'}`;
+
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'message-info';
+        infoDiv.textContent = `Sessão: ${message.session.substring(0, 8)}... | ${new Date(message.Date).toLocaleString()}`;
+
+        const textDiv = document.createElement('div');
+        textDiv.textContent = message.Text;
+
+        messageDiv.appendChild(infoDiv);
+        messageDiv.appendChild(textDiv);
+
+        chatContainer.appendChild(messageDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+
+      // Enviar mensagem
+      function sendMessage() {
+        const text = messageInput.value.trim();
+        if (text && socket.connected) {
+          const messageData = {
+            text: text,
+            date: new Date().toISOString(),
+          };
+
+          socket.emit('sendMessage', messageData);
+          messageInput.value = '';
+        }
+      }
+
+      // Event listeners
+      sendButton.addEventListener('click', sendMessage);
+
+      messageInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          sendMessage();
+        }
+      });
+
+      // Mostra informações de debug no console
+      console.log('=== INFORMAÇÕES DO CHAT ===');
+      console.log('Socket ID atual:', socket.id);
+      console.log('Status da conexão:', socket.connected);
+    </script>
+  </body>
+</html>
