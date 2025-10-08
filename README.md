@@ -91,6 +91,7 @@ Cliente WebSocket ←→ NestJS Gateway ←→ ChatService ←→ Redis
 ```typescript
 interface IMessage {
   session: string; // ID da sessão WebSocket
+  name: string; // Nome do cliente
   Text: string; // Conteúdo da mensagem
   Date: string; // Timestamp ISO 8601
 }
@@ -100,6 +101,7 @@ interface IMessage {
 
 - **`sendMessage`** - Enviar nova mensagem
 - **`receiveMessage`** - Receber mensagem de outro usuário
+- **`saveName`** - Salva nome do cliente
 - **`history`** - Receber histórico ao conectar
 
 ## 🛠️ Endpoints e Funcionalidades
@@ -121,6 +123,7 @@ interface IMessage {
 
 ```
 chat:geral
+chat:name
 ```
 
 ### Estrutura dos dados
@@ -136,6 +139,7 @@ chat:geral
 {
   "Message": {
     "session": "socket_id_123",
+    "name": "John Doe"
     "Text": "Olá, pessoal!",
     "Date": "2024-01-15T10:30:00.000Z"
   }
