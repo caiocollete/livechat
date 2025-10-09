@@ -155,6 +155,17 @@
     <script>
       // Conecta ao servidor WebSocket
       const socket = io('http://localhost:3000');
+      // const socket = io('https://e9b185413a0d.ngrok-free.app', {
+      //   transports: ['websocket', 'polling'],
+      //   upgrade: true,
+      //   rememberUpgrade: true,
+      //   timeout: 20000,
+      //   forceNew: true,
+      //   reconnection: true,
+      //   reconnectionDelay: 1000,
+      //   reconnectionAttempts: 5,
+      //   maxReconnectionAttempts: 5,
+      // });
 
       const statusDiv = document.getElementById('status');
       const chatContainer = document.getElementById('chatContainer');
@@ -165,7 +176,6 @@
 
       // Eventos de conexão
       socket.on('connect', () => {
-        console.log('Conectado ao servidor!');
         statusDiv.textContent = 'Conectado';
         statusDiv.className = 'status connected';
         messageInput.disabled = false;
@@ -176,12 +186,44 @@
         chatContainer.innerHTML = '';
       });
 
-      socket.on('disconnect', () => {
-        console.log('Desconectado do servidor!');
-        statusDiv.textContent = 'Desconectado';
+      socket.on('disconnect', (reason) => {
+        console.log('❌ Desconectado do servidor!', reason);
+        statusDiv.textContent = `Desconectado (${reason})`;
         statusDiv.className = 'status disconnected';
         messageInput.disabled = true;
         sendButton.disabled = true;
+      });
+
+      socket.on('connect_error', (error) => {
+        console.error('❌ Erro de conexão:', error);
+        statusDiv.textContent = `Erro de conexão: ${error.message}`;
+        statusDiv.className = 'status disconnected';
+        messageInput.disabled = true;
+        sendButton.disabled = true;
+      });
+
+      socket.on('reconnect', (attemptNumber) => {
+        console.log('🔄 Reconectado após', attemptNumber, 'tentativas');
+        statusDiv.textContent = 'Reconectado';
+        statusDiv.className = 'status connected';
+        messageInput.disabled = false;
+        sendButton.disabled = false;
+      });
+
+      socket.on('reconnect_attempt', (attemptNumber) => {
+        console.log('🔄 Tentativa de reconexão:', attemptNumber);
+        statusDiv.textContent = `Tentando reconectar... (${attemptNumber})`;
+        statusDiv.className = 'status disconnected';
+      });
+
+      socket.on('reconnect_error', (error) => {
+        console.error('❌ Erro na reconexão:', error);
+      });
+
+      socket.on('reconnect_failed', () => {
+        console.error('❌ Falha na reconexão');
+        statusDiv.textContent = 'Falha na reconexão';
+        statusDiv.className = 'status disconnected';
       });
 
       // Recebe histórico de mensagens quando conecta

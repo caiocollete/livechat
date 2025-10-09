@@ -32,6 +32,29 @@ const logHttpServerInformation = (app: NestExpressApplication) => {
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // Configuração de CORS para funcionar com ngrok
+  app.enableCors({
+    origin: [
+      'http://localhost:3000',
+      'https://*.ngrok-free.app',
+      'https://*.ngrok.io',
+      'http://localhost:*',
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'ngrok-skip-browser-warning',
+    ],
+  });
+
+  // Middleware para lidar com headers do ngrok
+  app.use((req: any, res: any, next: any) => {
+    res.setHeader('ngrok-skip-browser-warning', 'true');
+    next();
+  });
+
   const openApiConfig = new DocumentBuilder()
     .setTitle('NestJS Quickstart')
     .setDescription('API description goes here')
