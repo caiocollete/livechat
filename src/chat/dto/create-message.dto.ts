@@ -11,3 +11,27 @@ export class CreateMessageDto {
   @IsNotEmpty()
   date: string;
 }
+
+export class CreateWhisperDto {
+  @IsString()
+  @IsNotEmpty()
+  destinationSessionId: string;
+
+  @IsString()
+  @IsNotEmpty()
+  text: string;
+}
+
+export class CreateWhisperResponseDto {
+  @IsString()
+  @IsNotEmpty()
+  fromName: string;
+
+  @IsString()
+  @IsNotEmpty()
+  text: string;
+
+  @IsString()
+  @IsNotEmpty()
+  date: string;
+}

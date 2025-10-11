@@ -10,8 +10,12 @@ import {
 } from '@nestjs/websockets';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { Socket, Server } from 'socket.io';
-import { ChatService } from './chat.service';
-import { CreateMessageDto } from './dto/create-message.dto';
+import { ChatService, IWhisper } from './chat.service';
+import {
+  CreateMessageDto,
+  CreateWhisperDto,
+  CreateWhisperResponseDto,
+} from './dto/create-message.dto';
 
 @WebSocketGateway({
   cors: {
@@ -41,6 +45,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const history = await this.chatService.getHistory();
     // Envia o histórico apenas para o cliente que conectou
     client.emit('history', history);
+    const users = await this.chatService.getUsers();
+    client.emit('users', users);
   }
 
   /**
@@ -62,6 +68,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const sessionId = client.id;
 
     await this.chatService.saveName(sessionId, name);
+    this.logger.log(`Nome salvo: ${name} para sessão: ${sessionId}`);
+    const users = await this.chatService.getUsers();
+    client.emit('users', users);
+    this.logger.log(`Usuários atualizados: ${JSON.stringify(users)}`);
   }
 
   /**
@@ -80,6 +90,35 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const newMessage = await this.chatService.saveMessage(sessionId, text);
 
     // 2. Transmite a nova mensagem para TODOS os clientes conectados
-    this.server.emit('receiveMessage', { Message: newMessage });
+    const payloadResponse = { Message: newMessage };
+    this.server.emit('receiveMessage', payloadResponse);
+  }
+
+  @SubscribeMessage('sendWhisper')
+  async handleWhisper(
+    @ConnectedSocket() client: Socket,
+    @MessageBody(new ValidationPipe()) payload: CreateWhisperDto,
+  ): Promise<void> {
+    const sessionId = client.id;
+    const newWhisper: IWhisper = await this.chatService.sendWhisper(
+      sessionId,
+      payload.destinationSessionId,
+      payload.text,
+    );
+    this.logger.log(`Sussurro enviado: ${JSON.stringify(newWhisper)}`);
+    const newWhisperResponse: CreateWhisperResponseDto = {
+      fromName: newWhisper.Message.name,
+      text: newWhisper.Message.Text,
+      date: newWhisper.Message.Date,
+    };
+
+    this.logger.log(
+      `Sussurro respondido: ${JSON.stringify(newWhisperResponse)}`,
+    );
+    // enviar apenas para o destinatário
+    const payloadResponse = { Whisper: newWhisperResponse };
+    this.server
+      .to(newWhisper.destinationSessionId.session)
+      .emit('receiveWhisper', payloadResponse);
   }
 }

@@ -14,9 +14,14 @@ export interface IName {
   session: string;
   name: string;
 }
+export interface IWhisper {
+  destinationSessionId: IName;
+  Message: IMessage;
+}
 
 const CHAT_HISTORY_KEY = 'chat:geral';
 const CHAT_NAME_KEY = 'chat:name';
+const CHAT_WHISPERS_KEY = 'chat:whispers';
 const MAX_HISTORY_LENGTH = 50; // Manter apenas as últimas 50 mensagens
 
 @Injectable()
@@ -100,5 +105,31 @@ export class ChatService implements OnModuleInit {
     // A lista do Redis vem da mais nova para a mais antiga, então invertemos
     // para exibir na ordem cronológica correta no frontend.
     return messages.reverse();
+  }
+
+  async getUsers(): Promise<IName[]> {
+    const users = await this.redisClient.lRange(CHAT_NAME_KEY, 0, -1);
+    return users.map((user) => JSON.parse(user) as IName);
+  }
+
+  async sendWhisper(
+    sessionId: string,
+    destinationSessionId: string,
+    text: string,
+  ): Promise<IWhisper> {
+    const whisper: IWhisper = {
+      Message: {
+        session: sessionId,
+        name: await this.getName(sessionId),
+        Text: text,
+        Date: new Date().toISOString(),
+      },
+      destinationSessionId: {
+        session: destinationSessionId,
+        name: await this.getName(destinationSessionId),
+      },
+    };
+    await this.redisClient.lPush(CHAT_WHISPERS_KEY, JSON.stringify(whisper));
+    return whisper;
   }
 }

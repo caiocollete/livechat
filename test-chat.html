@@ -53,6 +53,8 @@
       .input-container {
         display: flex;
         gap: 10px;
+        margin-top: 10px;
+        margin-bottom: 10px;
       }
       #messageInput {
         flex: 1;
@@ -117,6 +119,30 @@
         color: #666;
         margin-bottom: 15px;
       }
+      #destinationSessionIdSelect {
+        flex: 1;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 25px;
+        outline: none;
+        font-size: 16px;
+      }
+      #sendWhisperButton {
+        padding: 12px 24px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 25px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      #sendWhisperButton:hover {
+        background-color: #0056b3;
+      }
+      #sendWhisperButton:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+      }
     </style>
   </head>
   <body>
@@ -132,6 +158,20 @@
           placeholder="Digite seu nome aqui..."
         />
         <button id="saveNameButton">Salvar</button>
+      </div>
+
+      <div class="input-container">
+        <select id="destinationSessionIdSelect">
+          <option id="destinationSessionIdOption" value="">
+            Selecione o destinatário...
+          </option>
+        </select>
+        <input
+          type="text"
+          id="whisperInput"
+          placeholder="Digite seu sussurro aqui..."
+        />
+        <button id="sendWhisperButton">Enviar</button>
       </div>
 
       <div id="chatContainer" class="chat-container">
@@ -154,23 +194,25 @@
 
     <script>
       // Conecta ao servidor WebSocket
-      const socket = io('http://localhost:3000');
-      // const socket = io('https://e9b185413a0d.ngrok-free.app', {
-      //   transports: ['websocket', 'polling'],
-      //   upgrade: true,
-      //   rememberUpgrade: true,
-      //   timeout: 20000,
-      //   forceNew: true,
-      //   reconnection: true,
-      //   reconnectionDelay: 1000,
-      //   reconnectionAttempts: 5,
-      //   maxReconnectionAttempts: 5,
-      // });
+      const socket = io('http://localhost:3000', {
+        // const socket = io('https://c7cc5722862d.ngrok-free.app', {
+        transports: ['websocket', 'polling'],
+        upgrade: true,
+        rememberUpgrade: true,
+        timeout: 20000,
+        forceNew: true,
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionAttempts: 5,
+        maxReconnectionAttempts: 5,
+      });
 
       const statusDiv = document.getElementById('status');
       const chatContainer = document.getElementById('chatContainer');
       const messageInput = document.getElementById('messageInput');
       const sendButton = document.getElementById('sendButton');
+      const saveNameButton = document.getElementById('saveNameButton');
+      const sendWhisperButton = document.getElementById('sendWhisperButton');
 
       let currentSessionId = null;
 
@@ -241,6 +283,15 @@
         }
       });
 
+      // Recebe usuários quando conecta
+      socket.on('users', (users) => {
+        console.log('Usuários recebidos:', users);
+        destinationSessionIdSelect.innerHTML = '';
+        users.forEach((user) => {
+          addUserToSelect(user);
+        });
+      });
+
       // Recebe novas mensagens em tempo real
       socket.on('receiveMessage', (data) => {
         console.log('Nova mensagem recebida:', data);
@@ -251,6 +302,23 @@
           );
         }
       });
+
+      socket.on('receiveWhisper', (data) => {
+        console.log('Novo sussurro recebido:', data);
+        if (data.Whisper) {
+          addWhisperToChat(
+            data.Whisper,
+            data.Whisper.sessionId === currentSessionId,
+          );
+        }
+      });
+
+      function addUserToSelect(user) {
+        const option = document.createElement('option');
+        option.value = user.session;
+        option.textContent = user.name;
+        destinationSessionIdSelect.appendChild(option);
+      }
 
       // Função para adicionar mensagem ao chat
       function addMessageToChat(message, isOwn) {
@@ -263,6 +331,24 @@
 
         const textDiv = document.createElement('div');
         textDiv.textContent = message.Text;
+
+        messageDiv.appendChild(infoDiv);
+        messageDiv.appendChild(textDiv);
+
+        chatContainer.appendChild(messageDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+
+      function addWhisperToChat(message, isOwn) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${isOwn ? 'own' : 'other'}`;
+
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'message-info';
+        infoDiv.textContent = `SUSSURRO DE ${message.fromName} | ${new Date(message.date).toLocaleString()}`;
+
+        const textDiv = document.createElement('div');
+        textDiv.textContent = message.text;
 
         messageDiv.appendChild(infoDiv);
         messageDiv.appendChild(textDiv);
@@ -302,10 +388,24 @@
         }
       }
 
+      function sendWhisper() {
+        const whisperInput = document.getElementById('whisperInput');
+        const sendWhisperButton = document.getElementById('sendWhisperButton');
+        const destinationSessionIdSelect = document.getElementById(
+          'destinationSessionIdSelect',
+        );
+        if (whisperInput.value && socket.connected) {
+          socket.emit('sendWhisper', {
+            destinationSessionId: destinationSessionIdSelect.value,
+            text: whisperInput.value,
+          });
+        }
+      }
+
       // Event listeners
       sendButton.addEventListener('click', sendMessage);
       saveNameButton.addEventListener('click', saveName);
-
+      sendWhisperButton.addEventListener('click', sendWhisper);
       messageInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
           sendMessage();
@@ -315,6 +415,11 @@
       nameInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
           saveName();
+        }
+      });
+      whisperInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          sendWhisper();
         }
       });
 
